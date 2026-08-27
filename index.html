@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kripto Portföy">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Kripto Portföy Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0B;
+    --surface:#131316;
+    --surface-2:#1C1C20;
+    --surface-3:#232328;
+    --border:#2A2A2E;
+    --accent:#F7931A;
+    --text:#F2F2F0;
+    --text-muted:#8A8A90;
+    --success:#3DD68C;
+    --danger:#FF5C5C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
+    min-height:100vh; padding:28px 14px 64px; display:flex; justify-content:center;
+  }
+  .wrap{width:100%; max-width:760px;}
+  .mono{font-family:'Space Mono',monospace;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{width:32px; height:32px; border-radius:50%; background:var(--accent); color:#1A1200; display:flex; align-items:center; justify-content:center; font-family:'Space Mono',monospace; font-weight:700; font-size:15px;}
+  .brand-name{font-weight:600; font-size:15px;}
+  .refresh-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
+    font-size:12px; padding:7px 12px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .refresh-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .last-sync{font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace;}
+
+  .summary-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:20px;
+  }
+  .summary-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px;}
+  .summary-label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;}
+  .summary-value{font-family:'Space Mono',monospace; font-size:18px; font-weight:700;}
+  .pos{color:var(--success);}
+  .neg{color:var(--danger);}
+
+  .add-coin{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:20px;
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  .add-coin input{
+    flex:1; min-width:160px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+    padding:10px 12px; color:var(--text); font-size:14px; outline:none;
+  }
+  .add-coin input:focus{border-color:var(--accent);}
+  .add-coin button{
+    background:var(--accent); border:none; color:#1A1200; font-weight:600; font-size:13px;
+    padding:10px 16px; border-radius:8px; cursor:pointer; white-space:nowrap;
+  }
+  .add-coin button:hover{background:#ffa733;}
+  .add-status{width:100%; font-size:12px; color:var(--text-muted); min-height:16px;}
+  .add-status.err{color:var(--danger);}
+
+  .empty-state{
+    text-align:center; padding:48px 20px; color:var(--text-muted); border:1px dashed var(--border); border-radius:14px;
+  }
+  .empty-state p{font-size:13px; margin-top:6px;}
+
+  .list-section{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:20px; overflow-x:auto;}
+  .list-title{font-size:13px; color:var(--text-muted); font-weight:500; margin-bottom:12px;}
+  .list-table{width:100%; border-collapse:collapse; font-size:12px; min-width:560px;}
+  .list-table th{
+    text-align:left; color:var(--text-muted); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--border);
+    text-transform:uppercase; font-size:10px; letter-spacing:0.4px; white-space:nowrap;
+  }
+  .list-table td{padding:9px 10px; border-bottom:1px solid var(--border); font-family:'Space Mono',monospace; white-space:nowrap;}
+  .list-table tr:last-child td{border-bottom:none;}
+  .list-table tr:hover td{background:var(--surface-2); cursor:pointer;}
+  .list-coin-cell{display:flex; flex-direction:column; gap:1px;}
+  .list-coin-symbol{font-family:'Inter',sans-serif; font-weight:600; font-size:13px;}
+  .list-coin-name{font-family:'Inter',sans-serif; font-size:10px; color:var(--text-muted);}
+
+  .coin-card{background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:12px; overflow:hidden;}
+  .coin-head{
+    display:grid; grid-template-columns:28px 1.4fr 1fr 1fr 1fr auto; gap:10px; align-items:center;
+    padding:14px 16px; cursor:pointer;
+  }
+  .coin-idx{font-family:'Space Mono',monospace; font-size:12px; color:var(--text-muted);}
+  .coin-name-cell{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .coin-symbol{font-weight:600; font-size:14px;}
+  .coin-fullname{font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cell-label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;}
+  .cell-value{font-family:'Space Mono',monospace; font-size:13px; font-weight:700;}
+  .coin-actions{display:flex; align-items:center; gap:8px;}
+  .icon-btn{
+    background:transparent; border:1px solid var(--border); color:var(--text-muted); width:28px; height:28px;
+    border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px;
+  }
+  .icon-btn:hover{border-color:var(--danger); color:var(--danger);}
+  .chevron{transition:transform .15s; color:var(--text-muted);}
+  .coin-card.open .chevron{transform:rotate(180deg);}
+
+  .coin-body{display:none; border-top:1px solid var(--border); padding:16px;}
+  .coin-card.open .coin-body{display:block;}
+
+  .tx-table{width:100%; border-collapse:collapse; margin-bottom:14px; font-size:12px;}
+  .tx-table th{text-align:left; color:var(--text-muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border); text-transform:uppercase; font-size:10px; letter-spacing:0.4px;}
+  .tx-table td{padding:7px 8px; border-bottom:1px solid var(--border); font-family:'Space Mono',monospace;}
+  .tx-table tr:last-child td{border-bottom:none;}
+  .tag{padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700;}
+  .tag.alis{background:rgba(61,214,140,0.12); color:var(--success);}
+  .tag.satis{background:rgba(255,92,92,0.12); color:var(--danger);}
+  .tx-del{background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:13px;}
+  .tx-del:hover{color:var(--danger);}
+  .no-tx{color:var(--text-muted); font-size:12px; padding:10px 0;}
+
+  .tx-form{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; background:var(--surface-2); border-radius:10px; padding:12px;}
+  .tx-field{display:flex; flex-direction:column; gap:4px;}
+  .tx-field label{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;}
+  .tx-field input, .tx-field select{
+    background:var(--surface-3); border:1px solid var(--border); border-radius:7px; padding:7px 9px;
+    color:var(--text); font-size:12px; outline:none; width:110px;
+  }
+  .tx-field input:focus, .tx-field select:focus{border-color:var(--accent);}
+  .tx-add-btn{
+    background:var(--accent); border:none; color:#1A1200; font-weight:600; font-size:12px;
+    padding:8px 14px; border-radius:7px; cursor:pointer; height:32px;
+  }
+  .tx-add-btn:hover{background:#ffa733;}
+  .tx-err{width:100%; font-size:11px; color:var(--danger); min-height:14px;}
+
+  .footer{margin-top:18px; text-align:center; font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace;}
+  .footer a{color:var(--accent); text-decoration:none;}
+
+  @media (max-width:640px){
+    .coin-head{grid-template-columns:22px 1fr auto; row-gap:8px;}
+    .coin-head .hide-mobile{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">₿</div>
+      <div class="brand-name">Kripto Portföy Takip</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="last-sync" id="lastSync">—</span>
+      <button class="refresh-btn" id="refreshBtn">↻ Fiyatları yenile</button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">Toplam alış</div>
+      <div class="summary-value mono" id="sumBuy">₺0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Toplam satış</div>
+      <div class="summary-value mono" id="sumSell">₺0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Realize kar/zarar</div>
+      <div class="summary-value mono" id="sumRealized">₺0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Anlık kar/zarar</div>
+      <div class="summary-value mono" id="sumUnrealized">₺0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Genel durum</div>
+      <div class="summary-value mono" id="sumTotal">₺0</div>
+    </div>
+  </div>
+
+  <div class="add-coin">
+    <input type="text" id="coinInput" placeholder="Coin adı veya sembol yaz (ör. Bitcoin, ARB, Doge)">
+    <button id="addCoinBtn">+ Coin ekle</button>
+    <div class="add-status" id="addStatus"></div>
+  </div>
+
+  <div id="emptyState" class="empty-state">
+    <div style="font-size:28px;">₿</div>
+    <p>Henüz portföyünüze coin eklemediniz. Yukarıdan bir coin adı yazıp ekleyin,<br>ardından alış/satış işlemlerinizi girin.</p>
+  </div>
+
+  <div id="listSection" class="list-section" style="display:none;">
+    <div class="list-title">Elimdeki coinler</div>
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Coin</th><th>Adet</th><th>Ort. maliyet</th><th>Güncel fiyat</th><th>Güncel değer</th><th>Kar/zarar</th><th>Kar/zarar %</th>
+        </tr>
+      </thead>
+      <tbody id="listTableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="coinList"></div>
+
+  <div class="footer">Fiyatlar <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>'dan canlı çekilir · veriler bu cihazda saklanır</div>
+
+</div>
+
+<script>
+let portfolio = { coins: [] };
+let priceCache = {};
+
+function fmtTry(n){
+  if(n === null || n === undefined || isNaN(n)) return '₺0';
+  const sign = n < 0 ? '-' : '';
+  return sign + '₺' + Math.abs(n).toLocaleString('tr-TR', {maximumFractionDigits:2, minimumFractionDigits:2});
+}
+function fmtQty(n){
+  return Number(n).toLocaleString('tr-TR', {maximumFractionDigits:8});
+}
+function todayStr(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function fmtDateDisplay(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+async function storageGet(key){
+  try{
+    if(window.storage && typeof window.storage.get === 'function'){
+      const res = await window.storage.get(key, false);
+      return res ? res.value : null;
+    }
+  }catch(e){}
+  try{
+    return localStorage.getItem(key);
+  }catch(e){
+    return null;
+  }
+}
+
+async function storageSet(key, value){
+  try{
+    if(window.storage && typeof window.storage.set === 'function'){
+      await window.storage.set(key, value, false);
+      return;
+    }
+  }catch(e){}
+  try{
+    localStorage.setItem(key, value);
+  }catch(e){}
+}
+
+async function loadPortfolio(){
+  try{
+    const raw = await storageGet('kripto-portfoy-data');
+    if(raw) portfolio = JSON.parse(raw);
+  }catch(e){
+    portfolio = { coins: [] };
+  }
+  render();
+  refreshPrices();
+}
+
+async function savePortfolio(){
+  try{
+    await storageSet('kripto-portfoy-data', JSON.stringify(portfolio));
+  }catch(e){
+    console.error('Kaydetme hatası', e);
+  }
+}
+
+async function searchCoin(query){
+  const res = await fetch('https://api.coingecko.com/api/v3/search?query=' + encodeURIComponent(query));
+  if(!res.ok) throw new Error('network');
+  const data = await res.json();
+  return data.coins && data.coins.length ? data.coins[0] : null;
+}
+
+document.getElementById('addCoinBtn').addEventListener('click', addCoin);
+document.getElementById('coinInput').addEventListener('keydown', e => { if(e.key === 'Enter') addCoin(); });
+
+async function addCoin(){
+  const input = document.getElementById('coinInput');
+  const status = document.getElementById('addStatus');
+  const query = input.value.trim();
+  if(!query){ return; }
+  status.className = 'add-status'; status.textContent = 'Aranıyor…';
+  try{
+    const match = await searchCoin(query);
+    if(!match){
+      status.className = 'add-status err'; status.textContent = 'Coin bulunamadı, yazımı kontrol edin.';
+      return;
+    }
+    if(portfolio.coins.some(c => c.id === match.id)){
+      status.className = 'add-status err'; status.textContent = 'Bu coin zaten portföyünüzde.';
+      return;
+    }
+    portfolio.coins.push({
+      id: match.id,
+      symbol: match.symbol.toUpperCase(),
+      name: match.name,
+      transactions: []
+    });
+    input.value = '';
+    status.textContent = '';
+    savePortfolio();
+    render();
+    refreshPrices();
+  }catch(e){
+    status.className = 'add-status err'; status.textContent = 'Arama başarısız, bağlantınızı kontrol edin.';
+  }
+}
+
+function removeCoin(id){
+  portfolio.coins = portfolio.coins.filter(c => c.id !== id);
+  savePortfolio();
+  render();
+}
+
+function addTransaction(coinId, tarih, tur, miktar, fiyat){
+  const coin = portfolio.coins.find(c => c.id === coinId);
+  if(!coin) return;
+  coin.transactions.push({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    tarih, tur, miktar: Number(miktar), fiyat: Number(fiyat)
+  });
+  coin.transactions.sort((a,b) => a.tarih.localeCompare(b.tarih));
+  savePortfolio();
+  render();
+}
+
+function removeTransaction(coinId, txId){
+  const coin = portfolio.coins.find(c => c.id === coinId);
+  if(!coin) return;
+  coin.transactions = coin.transactions.filter(t => t.id !== txId);
+  savePortfolio();
+  render();
+}
+
+function computeCoinStats(coin){
+  let qty = 0, costBasis = 0, realized = 0, totalBuy = 0, totalSell = 0;
+  for(const tx of coin.transactions){
+    const amount = tx.miktar * tx.fiyat;
+    if(tx.tur === 'alis'){
+      qty += tx.miktar;
+      costBasis += amount;
+      totalBuy += amount;
+    } else {
+      const avgCost = qty > 0 ? costBasis / qty : 0;
+      const soldCost = Math.min(tx.miktar, qty) * avgCost;
+      realized += amount - soldCost;
+      qty -= tx.miktar;
+      costBasis -= soldCost;
+      totalSell += amount;
+      if(qty < 0.00000001) { qty = Math.max(qty,0); }
+      if(costBasis < 0) costBasis = 0;
+    }
+  }
+  const avgCost = qty > 0 ? costBasis / qty : 0;
+  const currentPrice = priceCache[coin.id] || 0;
+  const currentValue = qty * currentPrice;
+  const unrealized = currentValue - costBasis;
+  return { qty, avgCost, costBasis, realized, totalBuy, totalSell, currentPrice, currentValue, unrealized };
+}
+
+function renderListTable(){
+  const section = document.getElementById('listSection');
+  const body = document.getElementById('listTableBody');
+
+  if(portfolio.coins.length === 0){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  body.innerHTML = portfolio.coins.map((coin, idx) => {
+    const s = computeCoinStats(coin);
+    const pct = s.costBasis > 0 ? (s.unrealized / s.costBasis) * 100 : 0;
+    const cls = s.unrealized >= 0 ? 'pos' : 'neg';
+    return `
+      <tr onclick="openCoinFromList('${coin.id}')">
+        <td>${idx + 1}</td>
+        <td>
+          <div class="list-coin-cell">
+            <span class="list-coin-symbol">${coin.symbol}</span>
+            <span class="list-coin-name">${coin.name}</span>
+          </div>
+        </td>
+        <td>${fmtQty(s.qty)}</td>
+        <td>${fmtTry(s.avgCost)}</td>
+        <td>${fmtTry(s.currentPrice)}</td>
+        <td>${fmtTry(s.currentValue)}</td>
+        <td class="${cls}">${fmtTry(s.unrealized)}</td>
+        <td class="${cls}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</td>
+      </tr>`;
+  }).join('');
+}
+
+function openCoinFromList(id){
+  const el = document.querySelector(`.coin-card[data-id="${id}"]`);
+  if(el){
+    el.classList.add('open');
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+function render(){
+  const emptyState = document.getElementById('emptyState');
+  const listEl = document.getElementById('coinList');
+
+  renderListTable();
+
+  if(portfolio.coins.length === 0){
+    emptyState.style.display = 'block';
+    listEl.innerHTML = '';
+    updateSummary();
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  const openIds = Array.from(document.querySelectorAll('.coin-card.open')).map(el => el.dataset.id);
+
+  listEl.innerHTML = portfolio.coins.map((coin, idx) => {
+    const s = computeCoinStats(coin);
+    const isOpen = openIds.includes(coin.id);
+    const changeClass = s.unrealized >= 0 ? 'pos' : 'neg';
+
+    const txRows = coin.transactions.length ? coin.transactions.map(tx => `
+      <tr>
+        <td>${fmtDateDisplay(tx.tarih)}</td>
+        <td><span class="tag ${tx.tur === 'alis' ? 'alis' : 'satis'}">${tx.tur === 'alis' ? 'ALIŞ' : 'SATIŞ'}</span></td>
+        <td>${fmtQty(tx.miktar)}</td>
+        <td>${fmtTry(tx.fiyat)}</td>
+        <td>${fmtTry(tx.miktar * tx.fiyat)}</td>
+        <td><button class="tx-del" onclick="removeTransaction('${coin.id}','${tx.id}')" aria-label="İşlemi sil">✕</button></td>
+      </tr>
+    `).join('') : `<tr><td colspan="6" class="no-tx">Henüz işlem yok. Aşağıdan ilk alış/satış işleminizi ekleyin.</td></tr>`;
+
+    return `
+    <div class="coin-card ${isOpen ? 'open' : ''}" data-id="${coin.id}">
+      <div class="coin-head" onclick="toggleCard('${coin.id}')">
+        <div class="coin-idx">${idx + 1}</div>
+        <div class="coin-name-cell">
+          <div class="coin-symbol">${coin.symbol}</div>
+          <div class="coin-fullname">${coin.name}</div>
+        </div>
+        <div class="hide-mobile">
+          <div class="cell-label">Adet</div>
+          <div class="cell-value">${fmtQty(s.qty)}</div>
+        </div>
+        <div class="hide-mobile">
+          <div class="cell-label">Güncel değer</div>
+          <div class="cell-value">${fmtTry(s.currentValue)}</div>
+        </div>
+        <div>
+          <div class="cell-label">Kar/zarar</div>
+          <div class="cell-value ${changeClass}">${fmtTry(s.unrealized)}</div>
+        </div>
+        <div class="coin-actions">
+          <button class="icon-btn" onclick="event.stopPropagation(); removeCoin('${coin.id}')" aria-label="Coini kaldır">🗑</button>
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      <div class="coin-body">
+        <table class="tx-table">
+          <thead><tr><th>Tarih</th><th>Tür</th><th>Miktar</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
+          <tbody>${txRows}</tbody>
+        </table>
+        <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
+          <span>Ort. maliyet: <b class="mono" style="color:var(--text)">${fmtTry(s.avgCost)}</b></span>
+          <span>Toplam alış: <b class="mono" style="color:var(--text)">${fmtTry(s.totalBuy)}</b></span>
+          <span>Toplam satış: <b class="mono" style="color:var(--text)">${fmtTry(s.totalSell)}</b></span>
+          <span>Realize kar: <b class="mono ${s.realized >= 0 ? 'pos' : 'neg'}">${fmtTry(s.realized)}</b></span>
+          <span>Güncel fiyat: <b class="mono" style="color:var(--text)">${fmtTry(s.currentPrice)}</b></span>
+        </div>
+        <div class="tx-form">
+          <div class="tx-field"><label>Tarih</label><input type="date" id="date-${coin.id}" value="${todayStr()}"></div>
+          <div class="tx-field"><label>Tür</label>
+            <select id="type-${coin.id}"><option value="alis">Alış</option><option value="satis">Satış</option></select>
+          </div>
+          <div class="tx-field"><label>Miktar</label><input type="number" step="any" min="0" id="qty-${coin.id}" placeholder="0"></div>
+          <div class="tx-field"><label>Fiyat (₺)</label><input type="number" step="any" min="0" id="price-${coin.id}" placeholder="0"></div>
+          <button class="tx-add-btn" onclick="submitTx('${coin.id}')">İşlem ekle</button>
+          <div class="tx-err" id="err-${coin.id}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateSummary();
+}
+
+function toggleCard(id){
+  const el = document.querySelector(`.coin-card[data-id="${id}"]`);
+  if(el) el.classList.toggle('open');
+}
+
+function submitTx(coinId){
+  const dateEl = document.getElementById('date-' + coinId);
+  const typeEl = document.getElementById('type-' + coinId);
+  const qtyEl = document.getElementById('qty-' + coinId);
+  const priceEl = document.getElementById('price-' + coinId);
+  const errEl = document.getElementById('err-' + coinId);
+
+  const miktar = parseFloat(qtyEl.value);
+  const fiyat = parseFloat(priceEl.value);
+
+  if(!dateEl.value){ errEl.textContent = 'Tarih seçin.'; return; }
+  if(!miktar || miktar <= 0){ errEl.textContent = 'Geçerli bir miktar girin.'; return; }
+  if(!fiyat || fiyat <= 0){ errEl.textContent = 'Geçerli bir fiyat girin.'; return; }
+  errEl.textContent = '';
+
+  addTransaction(coinId, dateEl.value, typeEl.value, miktar, fiyat);
+}
+
+function updateSummary(){
+  let totalBuy = 0, totalSell = 0, realized = 0, unrealized = 0;
+  for(const coin of portfolio.coins){
+    const s = computeCoinStats(coin);
+    totalBuy += s.totalBuy;
+    totalSell += s.totalSell;
+    realized += s.realized;
+    unrealized += s.unrealized;
+  }
+  document.getElementById('sumBuy').textContent = fmtTry(totalBuy);
+  document.getElementById('sumSell').textContent = fmtTry(totalSell);
+  const realizedEl = document.getElementById('sumRealized');
+  realizedEl.textContent = fmtTry(realized);
+  realizedEl.className = 'summary-value mono ' + (realized >= 0 ? 'pos' : 'neg');
+  const unrealizedEl = document.getElementById('sumUnrealized');
+  unrealizedEl.textContent = fmtTry(unrealized);
+  unrealizedEl.className = 'summary-value mono ' + (unrealized >= 0 ? 'pos' : 'neg');
+  const totalEl = document.getElementById('sumTotal');
+  const total = realized + unrealized;
+  totalEl.textContent = fmtTry(total);
+  totalEl.className = 'summary-value mono ' + (total >= 0 ? 'pos' : 'neg');
+}
+
+async function refreshPrices(){
+  if(portfolio.coins.length === 0) return;
+  const ids = portfolio.coins.map(c => c.id).join(',');
+  try{
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=try`);
+    if(!res.ok) throw new Error('network');
+    const data = await res.json();
+    for(const coin of portfolio.coins){
+      if(data[coin.id]) priceCache[coin.id] = data[coin.id].try;
+    }
+    document.getElementById('lastSync').textContent = 'son güncelleme: ' + new Date().toLocaleTimeString('tr-TR');
+    render();
+  }catch(e){
+    document.getElementById('lastSync').textContent = 'fiyatlar alınamadı';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refreshPrices);
+
+loadPortfolio();
+setInterval(refreshPrices, 60000);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
