@@ -114,7 +114,8 @@
   .coin-body{display:none; border-top:1px solid var(--border); padding:16px;}
   .coin-card.open .coin-body{display:block;}
 
-  .tx-table{width:100%; border-collapse:collapse; margin-bottom:14px; font-size:12px;}
+  .tx-table-wrap{width:100%; overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
+  .tx-table{width:100%; min-width:520px; border-collapse:collapse; font-size:12px;}
   .tx-table th{text-align:left; color:var(--text-muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border); text-transform:uppercase; font-size:10px; letter-spacing:0.4px;}
   .tx-table td{padding:7px 8px; border-bottom:1px solid var(--border); font-family:'Space Mono',monospace;}
   .tx-table tr:last-child td{border-bottom:none;}
@@ -497,10 +498,12 @@ function render(){
         </div>
       </div>
       <div class="coin-body">
+        <div class="tx-table-wrap">
         <table class="tx-table">
           <thead><tr><th>Tarih</th><th>Tür</th><th>Miktar</th><th>Fiyat</th><th>Tutar</th><th></th></tr></thead>
           <tbody>${txRows}</tbody>
         </table>
+        </div>
         <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
           <span>Ort. maliyet: <b class="mono" style="color:var(--text)">${fmtTry(s.avgCost)}</b></span>
           <span>Toplam alış: <b class="mono" style="color:var(--text)">${fmtTry(s.totalBuy)}</b></span>
