@@ -121,7 +121,7 @@
   .tag{padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700;}
   .tag.alis{background:rgba(61,214,140,0.12); color:var(--success);}
   .tag.satis{background:rgba(255,92,92,0.12); color:var(--danger);}
-  .tx-del{background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:13px;}
+  .tx-del{background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px 4px;}
   .tx-del:hover{color:var(--danger);}
   .no-tx{color:var(--text-muted); font-size:12px; padding:10px 0;}
 
@@ -218,6 +218,7 @@
 <script>
 let portfolio = { coins: [] };
 let priceCache = {};
+let editingTx = null;
 
 function fmtTry(n){
   if(n === null || n === undefined || isNaN(n)) return '₺0';
@@ -349,6 +350,21 @@ function removeTransaction(coinId, txId){
   render();
 }
 
+function updateTransaction(coinId, txId, tarih, tur, miktar, fiyat){
+  const coin = portfolio.coins.find(c => c.id === coinId);
+  if(!coin) return;
+  const tx = coin.transactions.find(t => t.id === txId);
+  if(!tx) return;
+  tx.tarih = tarih;
+  tx.tur = tur;
+  tx.miktar = Number(miktar);
+  tx.fiyat = Number(fiyat);
+  coin.transactions.sort((a,b) => a.tarih.localeCompare(b.tarih));
+  savePortfolio();
+  editingTx = null;
+  render();
+}
+
 function computeCoinStats(coin){
   let qty = 0, costBasis = 0, realized = 0, totalBuy = 0, totalSell = 0;
   for(const tx of coin.transactions){
@@ -437,6 +453,10 @@ function render(){
     const isOpen = openIds.includes(coin.id);
     const changeClass = s.unrealized >= 0 ? 'pos' : 'neg';
 
+    let isEditing = editingTx && editingTx.coinId === coin.id;
+    const editTxData = isEditing ? coin.transactions.find(t => t.id === editingTx.txId) : null;
+    if(isEditing && !editTxData) isEditing = false;
+
     const txRows = coin.transactions.length ? coin.transactions.map(tx => `
       <tr>
         <td>${fmtDateDisplay(tx.tarih)}</td>
@@ -444,7 +464,10 @@ function render(){
         <td>${fmtQty(tx.miktar)}</td>
         <td>${fmtTry(tx.fiyat)}</td>
         <td>${fmtTry(tx.miktar * tx.fiyat)}</td>
-        <td><button class="tx-del" onclick="removeTransaction('${coin.id}','${tx.id}')" aria-label="İşlemi sil">✕</button></td>
+        <td style="white-space:nowrap;">
+          <button class="tx-del" onclick="startEditTx('${coin.id}','${tx.id}')" aria-label="İşlemi düzenle" title="Düzenle">✎</button>
+          <button class="tx-del" onclick="removeTransaction('${coin.id}','${tx.id}')" aria-label="İşlemi sil" title="Sil">✕</button>
+        </td>
       </tr>
     `).join('') : `<tr><td colspan="6" class="no-tx">Henüz işlem yok. Aşağıdan ilk alış/satış işleminizi ekleyin.</td></tr>`;
 
@@ -486,13 +509,20 @@ function render(){
           <span>Güncel fiyat: <b class="mono" style="color:var(--text)">${fmtTry(s.currentPrice)}</b></span>
         </div>
         <div class="tx-form">
-          <div class="tx-field"><label>Tarih</label><input type="date" id="date-${coin.id}" value="${todayStr()}"></div>
+          <div class="tx-field"><label>Tarih</label><input type="date" id="date-${coin.id}" value="${isEditing ? editTxData.tarih : todayStr()}"></div>
           <div class="tx-field"><label>Tür</label>
-            <select id="type-${coin.id}"><option value="alis">Alış</option><option value="satis">Satış</option></select>
+            <select id="type-${coin.id}">
+              <option value="alis" ${isEditing && editTxData.tur === 'alis' ? 'selected' : ''}>Alış</option>
+              <option value="satis" ${isEditing && editTxData.tur === 'satis' ? 'selected' : ''}>Satış</option>
+            </select>
           </div>
-          <div class="tx-field"><label>Miktar</label><input type="number" step="any" min="0" id="qty-${coin.id}" placeholder="0"></div>
-          <div class="tx-field"><label>Fiyat (₺)</label><input type="number" step="any" min="0" id="price-${coin.id}" placeholder="0"></div>
-          <button class="tx-add-btn" onclick="submitTx('${coin.id}')">İşlem ekle</button>
+          <div class="tx-field"><label>Miktar</label><input type="number" step="any" min="0" id="qty-${coin.id}" placeholder="0" value="${isEditing ? editTxData.miktar : ''}"></div>
+          <div class="tx-field"><label>Fiyat (₺)</label><input type="number" step="any" min="0" id="price-${coin.id}" placeholder="0" value="${isEditing ? editTxData.fiyat : ''}"></div>
+          ${isEditing
+            ? `<button class="tx-add-btn" onclick="submitEditTx('${coin.id}','${editTxData.id}')">Güncelle</button>
+               <button class="tx-add-btn" style="background:var(--surface-3); color:var(--text);" onclick="cancelEditTx()">İptal</button>`
+            : `<button class="tx-add-btn" onclick="submitTx('${coin.id}')">İşlem ekle</button>`
+          }
           <div class="tx-err" id="err-${coin.id}"></div>
         </div>
       </div>
@@ -523,6 +553,39 @@ function submitTx(coinId){
   errEl.textContent = '';
 
   addTransaction(coinId, dateEl.value, typeEl.value, miktar, fiyat);
+}
+
+function startEditTx(coinId, txId){
+  editingTx = { coinId, txId };
+  render();
+  const el = document.querySelector(`.coin-card[data-id="${coinId}"]`);
+  if(el){
+    el.classList.add('open');
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+function cancelEditTx(){
+  editingTx = null;
+  render();
+}
+
+function submitEditTx(coinId, txId){
+  const dateEl = document.getElementById('date-' + coinId);
+  const typeEl = document.getElementById('type-' + coinId);
+  const qtyEl = document.getElementById('qty-' + coinId);
+  const priceEl = document.getElementById('price-' + coinId);
+  const errEl = document.getElementById('err-' + coinId);
+
+  const miktar = parseFloat(qtyEl.value);
+  const fiyat = parseFloat(priceEl.value);
+
+  if(!dateEl.value){ errEl.textContent = 'Tarih seçin.'; return; }
+  if(!miktar || miktar <= 0){ errEl.textContent = 'Geçerli bir miktar girin.'; return; }
+  if(!fiyat || fiyat <= 0){ errEl.textContent = 'Geçerli bir fiyat girin.'; return; }
+  errEl.textContent = '';
+
+  updateTransaction(coinId, txId, dateEl.value, typeEl.value, miktar, fiyat);
 }
 
 function updateSummary(){
