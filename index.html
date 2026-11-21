@@ -35,7 +35,7 @@
   .wrap{width:100%; max-width:760px;}
   .mono{font-family:'Space Mono',monospace;}
 
-  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;}
   .brand{display:flex; align-items:center; gap:10px;}
   .brand-mark{width:32px; height:32px; border-radius:50%; background:var(--accent); color:#1A1200; display:flex; align-items:center; justify-content:center; font-family:'Space Mono',monospace; font-weight:700; font-size:15px;}
   .brand-name{font-weight:600; font-size:15px;}
@@ -45,6 +45,19 @@
   }
   .refresh-btn:hover{border-color:var(--accent); color:var(--accent);}
   .last-sync{font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace;}
+
+  .backup-bar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .backup-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
+    font-size:11px; padding:7px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:5px;
+  }
+  .backup-btn:hover{border-color:var(--accent); color:var(--accent);}
+
+  .save-warning{
+    display:none; background:rgba(255,92,92,0.12); border:1px solid var(--danger); color:var(--danger);
+    font-size:12px; padding:10px 12px; border-radius:10px; margin-bottom:16px; line-height:1.5;
+  }
+  .save-warning.show{display:block;}
 
   .summary-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:20px;
@@ -164,6 +177,17 @@
     </div>
   </div>
 
+  <div class="backup-bar">
+    <button class="backup-btn" id="exportBtn">⬇ Yedekle (.json indir)</button>
+    <button class="backup-btn" id="importBtn">⬆ Yedekten geri yükle</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+  </div>
+
+  <div class="save-warning" id="saveWarning">
+    Veriler bu tarayıcıya kaydedilemedi. Gizli/özel sekmede olabilirsiniz ya da tarayıcı depolama alanınız dolu/kapalı olabilir.
+    Kaybetmemek için yukarıdaki "Yedekle" butonuyla düzenli olarak .json dosyası indirmenizi öneririz.
+  </div>
+
   <div class="summary-grid">
     <div class="summary-card">
       <div class="summary-label">Toplam alış</div>
@@ -221,6 +245,8 @@ let portfolio = { coins: [] };
 let priceCache = {};
 let editingTx = null;
 
+const STORAGE_KEY = 'kripto-portfoy-data';
+
 function fmtTry(n){
   if(n === null || n === undefined || isNaN(n)) return '₺0';
   const sign = n < 0 ? '-' : '';
@@ -238,50 +264,80 @@ function fmtDateDisplay(iso){
   return `${d}.${m}.${y}`;
 }
 
-async function storageGet(key){
-  try{
-    if(window.storage && typeof window.storage.get === 'function'){
-      const res = await window.storage.get(key, false);
-      return res ? res.value : null;
-    }
-  }catch(e){}
-  try{
-    return localStorage.getItem(key);
-  }catch(e){
-    return null;
-  }
+function showSaveWarning(show){
+  const el = document.getElementById('saveWarning');
+  if(!el) return;
+  el.classList.toggle('show', !!show);
 }
 
-async function storageSet(key, value){
+function loadPortfolio(){
   try{
-    if(window.storage && typeof window.storage.set === 'function'){
-      await window.storage.set(key, value, false);
-      return;
-    }
-  }catch(e){}
-  try{
-    localStorage.setItem(key, value);
-  }catch(e){}
-}
-
-async function loadPortfolio(){
-  try{
-    const raw = await storageGet('kripto-portfoy-data');
+    const raw = localStorage.getItem(STORAGE_KEY);
     if(raw) portfolio = JSON.parse(raw);
+    showSaveWarning(false);
   }catch(e){
+    console.error('Portföy okunamadı', e);
     portfolio = { coins: [] };
+    showSaveWarning(true);
   }
   render();
   refreshPrices();
 }
 
-async function savePortfolio(){
+function savePortfolio(){
+  const payload = JSON.stringify(portfolio);
   try{
-    await storageSet('kripto-portfoy-data', JSON.stringify(portfolio));
+    localStorage.setItem(STORAGE_KEY, payload);
+    const check = localStorage.getItem(STORAGE_KEY);
+    if(check !== payload){
+      throw new Error('yazma doğrulanamadı');
+    }
+    showSaveWarning(false);
   }catch(e){
     console.error('Kaydetme hatası', e);
+    showSaveWarning(true);
   }
 }
+
+function exportBackup(){
+  const payload = JSON.stringify(portfolio, null, 2);
+  const blob = new Blob([payload], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href = url;
+  a.download = `kripto-portfoy-yedek-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importBackupFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.coins)) throw new Error('geçersiz dosya');
+      portfolio = data;
+      savePortfolio();
+      render();
+      refreshPrices();
+      document.getElementById('addStatus').textContent = 'Yedek başarıyla geri yüklendi.';
+    }catch(e){
+      alert('Bu dosya geçerli bir yedek dosyası değil.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportBackup);
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(file) importBackupFile(file);
+  e.target.value = '';
+});
 
 async function searchCoin(query){
   const res = await fetch('https://api.coingecko.com/api/v3/search?query=' + encodeURIComponent(query));
