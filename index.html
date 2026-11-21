@@ -596,7 +596,46 @@ function toggleCard(id){
   if(el) el.classList.toggle('open');
 }
 
-function submitTx(coinId){
+function checkPriceAnomaly(coinId, fiyat){
+  const current = priceCache[coinId];
+  if(!current || current <= 0) return { anomaly:false };
+  const ratio = fiyat / current;
+  if(ratio > 50 || ratio < (1/50)){
+    const candidates = [fiyat*1000, fiyat*100, fiyat*10, fiyat/10, fiyat/100, fiyat/1000];
+    let best = candidates[0], bestDiff = Infinity;
+    for(const c of candidates){
+      if(c <= 0) continue;
+      const diff = Math.abs(Math.log10(c/current));
+      if(diff < bestDiff){ bestDiff = diff; best = c; }
+    }
+    return { anomaly:true, suggested: best, current };
+  }
+  return { anomaly:false };
+}
+
+function applySuggestedPrice(coinId, suggested, isEdit, txId){
+  const priceEl = document.getElementById('price-' + coinId);
+  priceEl.value = suggested;
+  const errEl = document.getElementById('err-' + coinId);
+  if(errEl) errEl.innerHTML = '';
+  if(isEdit){ submitEditTx(coinId, txId, true); } else { submitTx(coinId, true); }
+}
+
+function renderAnomalyWarning(coinId, errEl, check, isEdit, txId){
+  const suggestedFmt = fmtTry(check.suggested);
+  const currentFmt = fmtTry(check.current);
+  const forceCall = isEdit ? `submitEditTx('${coinId}','${txId}', true)` : `submitTx('${coinId}', true)`;
+  const applyCall = `applySuggestedPrice('${coinId}', ${check.suggested}, ${isEdit ? 'true' : 'false'}, '${txId||''}')`;
+  errEl.innerHTML = `
+    <div style="color:var(--accent); margin-bottom:6px;">
+      ⚠ Girdiğin fiyat, güncel piyasa fiyatından (${currentFmt}) çok farklı. Virgül/nokta karışmış olabilir — ${suggestedFmt} mi demek istedin?
+    </div>
+    <button type="button" class="tx-add-btn" onclick="${applyCall}">Düzelt: ${suggestedFmt}</button>
+    <button type="button" class="tx-add-btn" style="background:var(--surface-3); color:var(--text); margin-left:6px;" onclick="${forceCall}">Yine de bu fiyatla ekle</button>
+  `;
+}
+
+function submitTx(coinId, force){
   const dateEl = document.getElementById('date-' + coinId);
   const typeEl = document.getElementById('type-' + coinId);
   const qtyEl = document.getElementById('qty-' + coinId);
@@ -609,6 +648,14 @@ function submitTx(coinId){
   if(!dateEl.value){ errEl.textContent = 'Tarih seçin.'; return; }
   if(!miktar || miktar <= 0){ errEl.textContent = 'Geçerli bir miktar girin.'; return; }
   if(!fiyat || fiyat <= 0){ errEl.textContent = 'Geçerli bir fiyat girin.'; return; }
+
+  if(!force){
+    const check = checkPriceAnomaly(coinId, fiyat);
+    if(check.anomaly){
+      renderAnomalyWarning(coinId, errEl, check, false, null);
+      return;
+    }
+  }
   errEl.textContent = '';
 
   addTransaction(coinId, dateEl.value, typeEl.value, miktar, fiyat);
@@ -629,7 +676,7 @@ function cancelEditTx(){
   render();
 }
 
-function submitEditTx(coinId, txId){
+function submitEditTx(coinId, txId, force){
   const dateEl = document.getElementById('date-' + coinId);
   const typeEl = document.getElementById('type-' + coinId);
   const qtyEl = document.getElementById('qty-' + coinId);
@@ -642,6 +689,14 @@ function submitEditTx(coinId, txId){
   if(!dateEl.value){ errEl.textContent = 'Tarih seçin.'; return; }
   if(!miktar || miktar <= 0){ errEl.textContent = 'Geçerli bir miktar girin.'; return; }
   if(!fiyat || fiyat <= 0){ errEl.textContent = 'Geçerli bir fiyat girin.'; return; }
+
+  if(!force){
+    const check = checkPriceAnomaly(coinId, fiyat);
+    if(check.anomaly){
+      renderAnomalyWarning(coinId, errEl, check, true, txId);
+      return;
+    }
+  }
   errEl.textContent = '';
 
   updateTransaction(coinId, txId, dateEl.value, typeEl.value, miktar, fiyat);
