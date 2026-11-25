@@ -807,5 +807,23 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+  
+
+<script>
+// Silme butonuna basınca onay sor
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('button, [role="button"], .delete, .sil');
+  if (!btn) return;
+  const t = (btn.textContent || '') + (btn.title || '') + (btn.getAttribute('aria-label') || '');
+  if (!/🗑|sil/i.test(t)) return;
+  if (!confirm('Bu coini silmek istediğine emin misin?\nBu işlem geri alınamaz.')) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+}, true);
+</script>
 </body>
 </html>
+
+
